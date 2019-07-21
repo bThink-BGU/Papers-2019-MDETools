@@ -1,5 +1,6 @@
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 import gym
 from gym.utils import seeding
@@ -102,7 +103,7 @@ global true, false, BInRobot, Su, reward, m
 
 true = BoolSort().cast(True)
 false = BoolSort().cast(False)
-m=None
+m = None
 
 BInRobot = Bool('BInRobot')
 Su = Int('Su')
@@ -170,21 +171,21 @@ class BPEnv(gym.Env):
                     # Copy the old tickets to the new list
                     self.tickets.append(oldticket)
 
-        (may, must) = (False, True)
+        (request, block) = (False, False)
 
-        no_may = True
+        no_request = True
         for ticket in self.tickets:
-            if 'may' in ticket:
-                may = Or(may, ticket['may'])
-                no_may = false
-            if 'must' in ticket:
-                must = And(must, ticket['must'])
+            if 'request' in ticket:
+                request = Or(request, ticket['request'])
+                no_request = false
+            if 'block' in ticket:
+                block = Or(block, ticket['block'])
 
-        if no_may:
-            may = True
+        if no_request:
+            request = True
         # Compute a satisfying assignment and break if it does not exist
         sl = Solver()
-        sl.add(And(may, must))
+        sl.add(And(request, Not(block)))
         if sl.check() == sat:
             m = sl.model()
         else:
@@ -194,7 +195,7 @@ class BPEnv(gym.Env):
         if not time.time() - self.start_time < 220:
             interrupted = True
             self.close()
-        print("state", Dist, "reward", cur_reward)
+        print("reward", cur_reward)
         return np.array([DDeg, Dist]), cur_reward, interrupted, {}
 
     def reset(self):
@@ -251,21 +252,25 @@ class BPEnv(gym.Env):
 
     def update_action_variables(self, action):
         global half_speed_forward, full_speed_forward, half_speed_backwards, full_speed_backwards, need_to_spin
-        half_speed_forward, full_speed_forward, half_speed_backwards, full_speed_backwards, need_to_spin = (action in [0,4], action in [1,5], action in [2,6], action in [3,7], action in [0, 1, 2, 3])
-
+        half_speed_forward, full_speed_forward, half_speed_backwards, full_speed_backwards, need_to_spin = (
+        action in [0, 4], action in [1, 5], action in [2, 6], action in [3, 7], action in [0, 1, 2, 3])
 
 
 def invariants():
-  yield {'must': And(forward >= -MAX_PWR, forward <= MAX_PWR, Or(spin == 0, spin == MAX_SPIN, spin == -MAX_SPIN), Or(BInRobot == False, BInRobot == True)),
-         'wait-for': false}
+    yield {'block': Not(And(forward >= -MAX_PWR,
+                            forward <= MAX_PWR,
+                            Or(spin == 0, spin == MAX_SPIN, spin == -MAX_SPIN),
+                            Or(BInRobot == False, BInRobot == True))),
+           'wait-for': false}
+
 
 def get_ball_reward():
-    m = yield {'must': reward == -0.05, 'wait-for': true}
+    m = yield {'block': reward != -0.05, 'wait-for': true}
     while True:
         if is_true(m[BInRobot]):
-            m = yield {'must': reward == 1, 'wait-for': true}
+            m = yield {'block': reward != 1, 'wait-for': true}
         else:
-            m = yield {'must': reward == -0.05, 'wait-for': true}
+            m = yield {'block': reward != -0.05, 'wait-for': true}
 
 
 def move_towards_ball():
@@ -273,13 +278,13 @@ def move_towards_ball():
     while True:
         if is_false(m[BInRobot]):
             if half_speed_forward:
-                m = yield {'may': forward == MAX_PWR / 2, 'wait-for': true}
+                m = yield {'request': forward == MAX_PWR / 2, 'wait-for': true}
             if full_speed_forward:
-                m = yield {'may': forward == MAX_PWR, 'wait-for': true}
+                m = yield {'request': forward == MAX_PWR, 'wait-for': true}
             if half_speed_backwards:
-                m = yield {'may': forward == -MAX_PWR / 2, 'wait-for': true}
+                m = yield {'request': forward == -MAX_PWR / 2, 'wait-for': true}
             if full_speed_backwards:
-                m = yield {'may': forward == -MAX_PWR, 'wait-for': true}
+                m = yield {'request': forward == -MAX_PWR, 'wait-for': true}
         else:
             m = yield {'wait-for': true}
 
@@ -290,13 +295,14 @@ def spin_to_ball():
         if is_false(m[BInRobot]):
             ang = angle_between_robot_and_ball(m)
             if need_to_spin and ang > 0:
-                m = yield {'may': spin > 0, 'must': spin > 0, 'wait-for': true}
+                m = yield {'request': spin > 0, 'block': spin <= 0, 'wait-for': true}
             elif need_to_spin and ang < 0:
-                m = yield {'may': spin < 0, 'must': spin < 0, 'wait-for': true}
+                m = yield {'request': spin < 0, 'block': spin >= 0, 'wait-for': true}
             else:
-                m = yield {'must': spin == 0, 'wait-for': true}
+                m = yield {'block': spin != 0, 'wait-for': true}
         else:
             m = yield {'wait-for': true}
+
 
 def spin_to_goal():
     m = yield {'wait-for': true}
@@ -304,9 +310,9 @@ def spin_to_goal():
         if is_true(m[BInRobot]):
             if (abs(GDDeg) > 8):
                 if (GDDeg > 0):
-                    m = yield {'may': spin > 0, 'must': spin > 0, 'wait-for': true}
+                    m = yield {'request': spin > 0, 'block': spin <= 0, 'wait-for': true}
                 else:
-                    m = yield {'may': spin < 0, 'must': spin < 0, 'wait-for': true}
+                    m = yield {'request': spin < 0, 'block': spin >= 0, 'wait-for': true}
             else:
                 m = yield {'wait-for': true}
         else:
@@ -318,25 +324,25 @@ def get_ball():
     while True:
         if is_false(m[BInRobot]):
             if Dist < 4.3:
-                m = yield {'must': And(Su == -100, BInRobot == True),
-                       'wait-for': true}
+                m = yield {'block': Not(And(Su == -100, BInRobot == True)),
+                           'wait-for': true}
             else:
-                m = yield {'must': And(Su == -100, BInRobot == False),
-                       'wait-for': true}
+                m = yield {'block': Not(And(Su == -100, BInRobot == False)),
+                           'wait-for': true}
         else:
             m = yield {'wait-for': true}
 
 
 def shoot_ball():
-    m = yield {'must': BInRobot == False, 'wait-for': true}
+    m = yield {'block': BInRobot != False, 'wait-for': true}
     while True:
         if is_true(m[BInRobot]):
             if abs(GDDeg) < 8:
-                m = yield {'must': And(Su == 100, BInRobot == False),
-                       'wait-for': true}
+                m = yield {'block': Not(And(Su == 100, BInRobot == False)),
+                           'wait-for': true}
             else:
-                m = yield {'must': And(Su == -100, BInRobot == True),
-                       'wait-for': true}
+                m = yield {'block': Not(And(Su == -100, BInRobot == True)),
+                           'wait-for': true}
         else:
             m = yield {'wait-for': true}
 

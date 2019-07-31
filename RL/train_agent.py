@@ -116,6 +116,18 @@ TooClose = 3.5
 MAX_PWR = 100
 MAX_SPIN = 100
 
+class Request:
+    def __init__(self, variables=None):
+        self.variables = variables
+
+
+class WaitFor:
+    pass
+
+
+class Block:
+    pass
+
 
 class BPEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -158,7 +170,7 @@ class BPEnv(gym.Env):
             # Run the scenarios to their next yield and collect new tickets
             for oldticket in oldtickets:
                 # Check if the scenario waited for the computed assignment
-                if 'wait-for' in oldticket and is_true(m.eval(oldticket['wait-for'])):
+                if WaitFor in oldticket and is_true(m.eval(oldticket[WaitFor])):
 
                     bt = oldticket['bt']
                     oldticket.clear()
@@ -175,11 +187,11 @@ class BPEnv(gym.Env):
 
         no_request = True
         for ticket in self.tickets:
-            if 'request' in ticket:
-                request = Or(request, ticket['request'])
+            if Request in ticket:
+                request = Or(request, ticket[Request])
                 no_request = false
-            if 'block' in ticket:
-                block = Or(block, ticket['block'])
+            if Block in ticket:
+                block = Or(block, ticket[Block])
 
         if no_request:
             request = True
@@ -257,105 +269,105 @@ class BPEnv(gym.Env):
 
 
 def invariants():
-    yield {'block': Not(And(forward >= -MAX_PWR,
+    yield {Block: Not(And(forward >= -MAX_PWR,
                             forward <= MAX_PWR,
                             Or(spin == 0, spin == MAX_SPIN, spin == -MAX_SPIN),
                             Or(BInRobot == False, BInRobot == True))),
-           'wait-for': false}
+           WaitFor: false}
 
 
 def get_ball_reward():
-    m = yield {'block': reward != -0.05, 'wait-for': true}
+    m = yield {Block: reward != -0.05, WaitFor: true}
     while True:
         if is_true(m[BInRobot]):
-            m = yield {'block': reward != 1, 'wait-for': true}
+            m = yield {Block: reward != 1, WaitFor: true}
         else:
-            m = yield {'block': reward != -0.05, 'wait-for': true}
+            m = yield {Block: reward != -0.05, WaitFor: true}
 
 
 def move_towards_ball():
-    m = yield {'wait-for': true}
+    m = yield {WaitFor: true}
     while True:
         if is_false(m[BInRobot]):
             if half_speed_forward:
-                m = yield {'request': forward == MAX_PWR / 2, 'wait-for': true}
+                m = yield {Request: forward == MAX_PWR / 2, WaitFor: true}
             if full_speed_forward:
-                m = yield {'request': forward == MAX_PWR, 'wait-for': true}
+                m = yield {Request: forward == MAX_PWR, WaitFor: true}
             if half_speed_backwards:
-                m = yield {'request': forward == -MAX_PWR / 2, 'wait-for': true}
+                m = yield {Request: forward == -MAX_PWR / 2, WaitFor: true}
             if full_speed_backwards:
-                m = yield {'request': forward == -MAX_PWR, 'wait-for': true}
+                m = yield {Request: forward == -MAX_PWR, WaitFor: true}
         else:
-            m = yield {'wait-for': true}
+            m = yield {WaitFor: true}
 
 
 def spin_to_ball():
-    m = yield {'wait-for': true}
+    m = yield {WaitFor: true}
     while True:
         if is_false(m[BInRobot]):
             ang = angle_between_robot_and_ball(m)
             if need_to_spin and ang > 0:
-                m = yield {'request': spin > 0, 'block': spin <= 0, 'wait-for': true}
+                m = yield {Request: spin > 0, Block: spin <= 0, WaitFor: true}
             elif need_to_spin and ang < 0:
-                m = yield {'request': spin < 0, 'block': spin >= 0, 'wait-for': true}
+                m = yield {Request: spin < 0, Block: spin >= 0, WaitFor: true}
             else:
-                m = yield {'block': spin != 0, 'wait-for': true}
+                m = yield {Block: spin != 0, WaitFor: true}
         else:
-            m = yield {'wait-for': true}
+            m = yield {WaitFor: true}
 
 
 def spin_to_goal():
-    m = yield {'wait-for': true}
+    m = yield {WaitFor: true}
     while True:
         if is_true(m[BInRobot]):
             if (abs(GDDeg) > 8):
                 if (GDDeg > 0):
-                    m = yield {'request': spin > 0, 'block': spin <= 0, 'wait-for': true}
+                    m = yield {Request: spin > 0, Block: spin <= 0, WaitFor: true}
                 else:
-                    m = yield {'request': spin < 0, 'block': spin >= 0, 'wait-for': true}
+                    m = yield {Request: spin < 0, Block: spin >= 0, WaitFor: true}
             else:
-                m = yield {'wait-for': true}
+                m = yield {WaitFor: true}
         else:
-            m = yield {'wait-for': true}
+            m = yield {WaitFor: true}
 
 
 def get_ball():
-    m = yield {'wait-for': true}
+    m = yield {WaitFor: true}
     while True:
         if is_false(m[BInRobot]):
             if Dist < 4.3:
-                m = yield {'block': Not(And(Su == -100, BInRobot == True)),
-                           'wait-for': true}
+                m = yield {Block: Not(And(Su == -100, BInRobot == True)),
+                           WaitFor: true}
             else:
-                m = yield {'block': Not(And(Su == -100, BInRobot == False)),
-                           'wait-for': true}
+                m = yield {Block: Not(And(Su == -100, BInRobot == False)),
+                           WaitFor: true}
         else:
-            m = yield {'wait-for': true}
+            m = yield {WaitFor: true}
 
 
 def shoot_ball():
-    m = yield {'block': BInRobot != False, 'wait-for': true}
+    m = yield {Block: BInRobot != False, WaitFor: true}
     while True:
         if is_true(m[BInRobot]):
             if abs(GDDeg) < 8:
-                m = yield {'block': Not(And(Su == 100, BInRobot == False)),
-                           'wait-for': true}
+                m = yield {Block: Not(And(Su == 100, BInRobot == False)),
+                           WaitFor: true}
             else:
-                m = yield {'block': Not(And(Su == -100, BInRobot == True)),
-                           'wait-for': true}
+                m = yield {Block: Not(And(Su == -100, BInRobot == True)),
+                           WaitFor: true}
         else:
-            m = yield {'wait-for': true}
+            m = yield {WaitFor: true}
 
 
 def telem_updater():
     while True:
         getTelem()
-        yield {'wait-for': true}
+        yield {WaitFor: true}
 
 
 def logger():
     while True:
-        m = yield {'wait-for': true}
+        m = yield {WaitFor: true}
         spin_speed = m[spin]
         Suction = m[Su]
         forward_speed = m[forward]

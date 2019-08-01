@@ -29,7 +29,7 @@ public class BPJsRobotControl {
   private final int playerId;
   private final BProgram bprog;
   private final ContextService contextService;
-  private final TelemetryCollector telemetryCollector;
+  private final StateUpdater telemetryCollector;
   private final Actuator actuator;
 
   public BPJsRobotControl(Optional<String> simulationIp, OptionalInt player1Port,
@@ -55,7 +55,7 @@ public class BPJsRobotControl {
     this.controlPanel = new ControlPanel(bprog);
     // });
     this.referee = new RefereeListener(this.ip, refereePort.orElse(9007), bprog, controlPanel);
-    this.telemetryCollector = new TelemetryCollector(bprog, playerCommands, player, controlPanel);
+    this.telemetryCollector = new StateUpdater(bprog, playerCommands, player, controlPanel);
     this.actuator = new Actuator(playerCommands, this.telemetryCollector);
 
     // contextService.addListener(new PrintBProgramRunnerListener());

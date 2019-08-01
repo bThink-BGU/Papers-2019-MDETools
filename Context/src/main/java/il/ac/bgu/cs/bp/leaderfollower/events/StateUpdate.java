@@ -9,24 +9,24 @@ import java.util.Objects;
  * An event that holds all the current telemetry
  */
 @SuppressWarnings("serial")
-public class Telemetry extends BEvent implements java.io.Serializable {
-    public static final AnyTelemetryEventSet ANY = new AnyTelemetryEventSet();
+public class StateUpdate extends BEvent implements java.io.Serializable {
+    public static final AnyStateUpdateEventSet ANY = new AnyStateUpdateEventSet();
     public final GpsData ballGps;
     public final GpsData playerGps;
-    public final GpsData gateGps;
+    public final GpsData goalGps;
     public final Double playerCompass;
-    public final SourceToTargetData playerToBall;
-    public final SourceToTargetData playerToGate;
+    public final SourceToTargetData ball;
+    public final SourceToTargetData goal;
 
 
-    public Telemetry(GpsData PlayerGps, GpsData BallGps, GpsData GateGps, Double PlayerCompass) {
+    public StateUpdate(GpsData PlayerGps, GpsData BallGps, GpsData GoalGps, Double PlayerCompass) {
         super("Telemetry(" + BallGps + "," + PlayerGps + "," + PlayerCompass + ")");
         this.ballGps = BallGps;
         this.playerGps = PlayerGps;
-        this.gateGps = GateGps;
+        this.goalGps = GoalGps;
         this.playerCompass = PlayerCompass;
-        this.playerToBall = SourceToTargetData.sourceToGoal(playerGps, ballGps, playerCompass);
-        this.playerToGate = SourceToTargetData.sourceToGoal(playerGps, GateGps, playerCompass);
+        this.ball = SourceToTargetData.sourceToGoal(playerGps, ballGps, playerCompass);
+        this.goal = SourceToTargetData.sourceToGoal(playerGps, GoalGps, playerCompass);
     }
 
     @Override
@@ -49,7 +49,7 @@ public class Telemetry extends BEvent implements java.io.Serializable {
         if (getClass() != obj.getClass()) {
             return false;
         }
-        final Telemetry other = (Telemetry) obj;
+        final StateUpdate other = (StateUpdate) obj;
         if (!Objects.equals(this.playerGps, other.playerGps)) {
             return false;
         }
@@ -131,10 +131,10 @@ public class Telemetry extends BEvent implements java.io.Serializable {
         }
     }
 
-    private static class AnyTelemetryEventSet implements EventSet {
+    private static class AnyStateUpdateEventSet implements EventSet {
         @Override
         public boolean contains(BEvent event) {
-            return event instanceof Telemetry;
+            return event instanceof StateUpdate;
         }
 
     }

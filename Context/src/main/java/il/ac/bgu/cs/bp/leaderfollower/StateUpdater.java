@@ -12,9 +12,9 @@ import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 import il.ac.bgu.cs.bp.bpjs.model.BProgram;
 import il.ac.bgu.cs.bp.leaderfollower.PlayerCommands.GpsData;
-import il.ac.bgu.cs.bp.leaderfollower.events.Telemetry;
+import il.ac.bgu.cs.bp.leaderfollower.events.StateUpdate;
 
-public class TelemetryCollector implements Runnable {
+public class StateUpdater implements Runnable {
   private final int maxSteps = 310;
   private Double[] d2TAllTime = new Double[maxSteps];
   private Double[] disAllTime = new Double[maxSteps];
@@ -23,15 +23,15 @@ public class TelemetryCollector implements Runnable {
   private final BProgram bp;
   private final PlayerCommands player;
   private final ControlPanel controlPanel;
-  private final GpsData playerGate;
+  private final GpsData playerGoal;
   private Thread thread;
 
-  public TelemetryCollector(BProgram bp, PlayerCommands player, PlayerData data,
+  public StateUpdater(BProgram bp, PlayerCommands player, PlayerData data,
       ControlPanel controlPanel) {
     this.bp = bp;
     this.player = player;
     this.controlPanel = controlPanel;
-    this.playerGate = data.gate;
+    this.playerGoal = data.goal;
   }
 
   @Deprecated
@@ -39,7 +39,7 @@ public class TelemetryCollector implements Runnable {
   public void run() {
     try {
       while (true) {
-        Thread.sleep(100);
+        Thread.sleep(200);
         collectTelemetry();
       }
     } catch (InterruptedException ex) {
@@ -65,24 +65,24 @@ public class TelemetryCollector implements Runnable {
       return;
     }
 
-    Telemetry t = new Telemetry(playerGpsData, ballGpsData, playerGate, playerCompassDeg);
+    StateUpdate t = new StateUpdate(playerGpsData, ballGpsData, playerGoal, playerCompassDeg);
 
     SwingUtilities.invokeLater(() -> {
       controlPanel.PlayerGpsZ_Text.setText(fmt.format(t.playerGps.z));
       controlPanel.PlayerGpsX_Text.setText(fmt.format(t.playerGps.x));
       controlPanel.BallGpsZ_Text.setText(fmt.format(t.ballGps.z));
       controlPanel.BallGpsX_Text.setText(fmt.format(t.ballGps.x));
-      controlPanel.Distance2Ball_Text.setText(fmt.format(t.playerToBall.distance));
+      controlPanel.Distance2Ball_Text.setText(fmt.format(t.ball.distance));
       controlPanel.PlayerDegree_Text.setText(fmt.format(t.playerCompass));
-      controlPanel.Deg2Ball_Text.setText(fmt.format(t.playerToBall.degree));
-      controlPanel.Deg2Gate_Text.setText(fmt.format(t.playerToGate.degree));
+      controlPanel.Deg2Ball_Text.setText(fmt.format(t.ball.degree));
+      controlPanel.Deg2Goal_Text.setText(fmt.format(t.goal.degree));
     });
-    Logger.getLogger(BPJsRobotControl.class.getName()).log(Level.INFO, "Enqueuing telemetry");
+    // Logger.getLogger(BPJsRobotControl.class.getName()).log(Level.INFO, "Enqueuing telemetry");
     bp.enqueueExternalEvent(t);
-    if (stepCount < maxSteps) {
+    /* if (stepCount < maxSteps) {
       System.out.println(stepCount);
-      d2TAllTime[stepCount] = t.playerToBall.degree;
-      disAllTime[stepCount] = t.playerToBall.distance;
+      d2TAllTime[stepCount] = t.ball.degree;
+      disAllTime[stepCount] = t.ball.distance;
     } else if (stepCount == maxSteps) {
       System.out.println("D2tArray: " + Arrays.toString(d2TAllTime));
       System.out.println("DistArray: " + Arrays.toString(disAllTime));
@@ -95,7 +95,7 @@ public class TelemetryCollector implements Runnable {
         Logger.getLogger(BPJsRobotControl.class.getName()).log(Level.SEVERE, null, ex);
       }
     }
-    stepCount++;
+    stepCount++; */
     controlPanel.TimeLabel.setText(Integer.toString(stepCount));
   }
 

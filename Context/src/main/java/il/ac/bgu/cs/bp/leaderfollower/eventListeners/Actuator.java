@@ -10,17 +10,17 @@ import il.ac.bgu.cs.bp.bpjs.model.BEvent;
 import il.ac.bgu.cs.bp.bpjs.model.BProgram;
 import il.ac.bgu.cs.bp.leaderfollower.BPJsRobotControl;
 import il.ac.bgu.cs.bp.leaderfollower.PlayerCommands;
-import il.ac.bgu.cs.bp.leaderfollower.TelemetryCollector;
+import il.ac.bgu.cs.bp.leaderfollower.StateUpdater;
 import il.ac.bgu.cs.bp.leaderfollower.events.ParameterizedMove;
 
 public class Actuator extends BProgramRunnerListenerAdapter implements Runnable {
   private final BlockingQueue<BEvent> eventsQueue = new LinkedBlockingQueue<>();
   private final PlayerCommands player;
-  private final TelemetryCollector telemetryCollector;
+  private final StateUpdater telemetryCollector;
   private final int sleep = 30;
   private Thread thread;
 
-  public Actuator(PlayerCommands player, TelemetryCollector telemetryCollector) {
+  public Actuator(PlayerCommands player, StateUpdater telemetryCollector) {
     this.player = player;
     this.telemetryCollector = telemetryCollector;
   }

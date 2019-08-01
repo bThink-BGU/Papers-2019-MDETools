@@ -7,11 +7,13 @@ import java.io.Serializable;
 @MappedSuperclass
 @SuppressWarnings("WeakerAccess")
 public abstract class BasicEntity implements Serializable {
+    private static final long serialVersionUID = 3806203946630133205L;
+
     @Id
 	private final String id;
 
     protected BasicEntity() {
-        id = "";
+        this("");
     }
     protected BasicEntity(String id) {
         this.id = id;

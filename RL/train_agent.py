@@ -486,7 +486,7 @@ def callback(_locals, _globals):
 class CustomPolicy(FeedForwardPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomPolicy, self).__init__(*args, **kwargs,
-                                           layers=[5],
+                                           layers=[5, 5],
                                            layer_norm=False,
                                            feature_extraction="mlp")
 
@@ -497,7 +497,7 @@ if __name__ == "__main__":
     # Create and wrap the environment
     env = BPEnv()
     env.testing = False
-    env.simulation_path = "/Users/tomyaacov/Desktop/university/thesis/ChallengeProblem/mac/mac.app"
+    env.simulation_path = sys.argv[1]
     env = Monitor(env, log_dir, allow_early_resets=True)
 
     model = DQN(CustomPolicy, env, verbose=1)

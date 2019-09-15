@@ -6,6 +6,12 @@ importPackage(Packages.il.ac.bgu.cs.bp.bpjs.context);
 var player;
 var opponent;
 
+var MIN_DEGREE = 6;
+var MAX_SPIN = 50;
+var MAX_PWR = 100;
+var TOO_FAR = 5;
+var TOO_CLOSE = 3.7;
+
 var FBWARD_EVENT_REGEX = /^(Possesion|Timeout|scored|Done)/
 var refereeEvents = bp.EventSet("RefereeEvents", function (e) {
   return e.name.match(FBWARD_EVENT_REGEX) !== null
@@ -13,71 +19,44 @@ var refereeEvents = bp.EventSet("RefereeEvents", function (e) {
 var moveEvents = bp.EventSet("MoveEvents", function (e) {
   return e instanceof ParameterizedMove && (e.powerForward != null || e.powerLeft != null);
 });
+var spinEvents = bp.EventSet("MoveEvents", function (e) {
+  return e instanceof ParameterizedMove && e.spin != null;
+});
 var anyParameterizedMove = bp.EventSet("AnyParameterizedMove", function (e) {
   return e instanceof ParameterizedMove;
 });
 
 //#region helper functions
-function getPlayerToTargetData(telemetry, targetName) {
-  if (targetName.equals("ball"))
-    return telemetry.playerToBall;
-  else if (targetName.equals("gate"))
-    return telemetry.playerToGate;
+function needGradient(distance) {
+  return (distance > TOO_CLOSE && distance < TOO_FAR) || (distance < TOO_CLOSE && distance > (2 * TOO_CLOSE - TOO_FAR));
 }
 
-function goToTargetRefactored(targetName, direction, interruptEvent) {
-  while (true) {
-    var t = bp.sync({ waitFor: Telemetry.ANY, interrupt: interruptEvent });
-    // update the target name with any global updates
-    targetName = CTX.getContextInstances("GoToTarget").get(0).target;
-    var data = getPlayerToTargetData(t, targetName);
-    var dx = data.dx;
-    var dz = data.dz;
-    var dxA = Math.abs(dx);
-    var dzA = Math.abs(dz);
-    var larger = dxA > dzA && dxA !== 0 ? dxA : dzA;
-    var multiplier = 100 / larger;
-    if (direction.equals("x")) {
-      var powerForward = dx * multiplier;
-      bp.sync({ waitFor: anyParameterizedMove, request: ParameterizedMove(powerForward, null, null), interrupt: interruptEvent });
-    } else if (direction.equals("z")) {
-      var powerLeft = dz * multiplier;
-      bp.sync({ waitFor: anyParameterizedMove, request: ParameterizedMove(null, powerLeft, null), interrupt: interruptEvent });
-    }
-  }
+function gradient(distance) {
+  return Math.round(((distance - TOO_CLOSE) / (TOO_FAR - TOO_CLOSE)) * 100);
 }
 
-function goToTargetGradient(targetName, direction, interruptEvent) {
-  var tooClose = 3.5, tooFar = 5;
-  while (true) {
-    var t = bp.sync({ waitFor: Telemetry.ANY, interrupt: interruptEvent });
-    // update the target name with any global updates
-    targetName = CTX.getContextInstances("GoToTarget").get(0).target;
-    var data = getPlayerToTargetData(t, targetName);
-    var d, dA;
-    if (direction.equals("x")) {
-      var d = data.dx;
-    } else if (direction.equals("z")) {
-      var d = data.dz;
-    }
-    dA = Math.abs(d);
+function suction() {
+  return bp.Event("Suck");
+}
 
-    var power = 100;
-    var sign = d < 0 ? -1 : 1;
+function expel() {
+  return bp.Event("Expel");
+}
 
-    if ((dA > tooClose && dA < tooFar) || (dA < tooClose  && dA > (2 * tooClose - tooFar))) {
-        power = Math.round(((dA - tooClose) / (tooFar - tooClose)) * 100);
-    }
+function spin(power) {
+  return ParameterizedMove(null, null, power);
+}
 
-    var powerForward = null;
-    var powerLeft = null;
-    if (direction.equals("x")) {
-      powerForward = sign * power;
-    } else if (direction.equals("z")) {
-      powerLeft = sign * power;
-    }
-    bp.sync({ request: ParameterizedMove(powerForward, powerLeft, null), interrupt: interruptEvent });
-  }
+function moveForward(power) {
+  return ParameterizedMove(power, null, null);
+}
+
+function distanceFromPlayer(state) {
+  return state.distance;
+}
+
+function degreeFromPlayer(state) {
+  return state.degree;
 }
 //#endregion
 
@@ -90,9 +69,15 @@ bp.registerBThread("HandleRefereeEvents", function () {
       bp.sync({ request: CTX.UpdateEvent("UpdateTimeout", { "timeout": e.data.counter }) });
     } else if (e.name.equals("scored")) {
       if (e.data[1].equals(player.name))
-        bp.sync({ request: CTX.UpdateEvent("UpdateMyScore", { "score": Double(e.data[2]).intValue() }) });
+        bp.sync({ request: CTX.TransactionEvent(
+            CTX.UpdateEvent("UpdatePosession", { "posession": "" }), 
+            CTX.UpdateEvent("UpdateMyScore", { "score": Double(e.data[2]).intValue() }) 
+        )});
       else
-        bp.sync({ request: CTX.UpdateEvent("UpdateOpponentScore", { "score": Double(e.data[2]).intValue() }) });
+        bp.sync({ request: CTX.TransactionEventr(
+            CTX.UpdateEvent("UpdatePosession", { "posession": "" }), 
+            CTX.UpdateEvent("UpdateOpponentScore", { "score": Double(e.data[2]).intValue() })
+        )});
     } else if (e.name.equals("Done")) {
       bp.sync({ request: CTX.UpdateEvent("MarkGameAsOver") });
     } else
@@ -101,84 +86,81 @@ bp.registerBThread("HandleRefereeEvents", function () {
 });
 
 bp.registerBThread("InitData", function () {
-  bp.sync({ request: CTX.InsertEvent(GoToTarget(), Referee(player.name)) });
-});
-
-CTX.subscribe("GameFlow", "Playing", function (r) {
-  var endOfGameEvent = CTX.ContextEndedEvent("Playing", r);
   bp.sync({ waitFor: bp.Event("Start Control") });
-  while (true) {
-    bp.sync({ request: CTX.UpdateEvent("SetTarget", { "target": "ball" }), interrupt: endOfGameEvent });
-    bp.sync({ waitFor: CTX.AnyNewContextEvent("IPossesTheBall"), interrupt: endOfGameEvent });
-    bp.sync({ request: CTX.UpdateEvent("SetTarget", { "target": "gate" }), interrupt: endOfGameEvent });
-    bp.sync({ waitFor: CTX.AnyNewContextEvent("BallIsFree"), interrupt: endOfGameEvent });
+  bp.sync({ request: CTX.InsertEvent(Referee(player.name), Target()) });
+});
+
+CTX.subscribe("MoveTowardsTarget", "MoveTowardsTarget", function (target) {
+  // var ctxEndedEvent = CTX.AnyContextEndedEvent("BallIsFree");
+  var distance = target.distanceFromPlayer;
+  if (needGradient(distance))
+    bp.sync({ request: moveForward(gradient(distance)), waitFor:  spinEvents});
+  else
+    bp.sync({ request: moveForward(MAX_PWR), waitFor: spinEvents });
+});
+
+CTX.subscribe("SpinToTarget", "MoveTowardsTarget", function (target) {
+  var degree = target.degreeFromPlayer;
+  if (degree < -MIN_DEGREE)
+    bp.sync({ request: spin(-MAX_SPIN), block: moveEvents });
+  else if (degree > MIN_DEGREE)
+    bp.sync({ request: spin(MAX_SPIN), block: moveEvents });
+  /* else
+    bp.sync({ request: spin(0), block: moveEvents }); */
+});
+
+// CTX.subscribe("BallSuction", "BallIsFreeNearPlayer", function (target) {
+CTX.subscribe("BallSuction", "BallIsFree", function (referee) {
+  bp.sync({ request: suction() });
+  bp.sync({ block: suction(), waitFor: expel() });
+});
+
+CTX.subscribe("UpdateBallTarget", "BallIsFree", function (referee) {
+  var ctxFreeEndedEvent = CTX.AnyContextEndedEvent("BallIsFree");
+  while(true) {
+    var ball = bp.sync({waitFor: StateUpdate.ANY, interrupt: ctxFreeEndedEvent}).ball;
+    bp.sync({
+      request: 
+      CTX.TransactionEvent(
+        CTX.UpdateEvent("PurgeOldTargets"),
+        CTX.InsertEvent(new Target("ball", distanceFromPlayer(ball), degreeFromPlayer(ball)))
+      )
+    });
   }
 });
 
-CTX.subscribe("GoToTargetX", "GoToTarget", function (gt) {
-  // goToTargetGradient(gt.target, "x", CTX.ContextEndedEvent("GoToTarget", gt));
-  goToTargetRefactored(gt.target, "x", CTX.ContextEndedEvent("GoToTarget", gt));
-});
+// ########################################################################################333
 
-CTX.subscribe("GoToTargetZ", "GoToTarget", function (gt) {
-  goToTargetRefactored(gt.target, "z", CTX.ContextEndedEvent("GoToTarget", gt));
-});
+/* bp.registerBThread("block2suck", function(){
+  while(true) {
+    bp.sync({ waitFor: expel() });
+    bp.sync({ block: suction(), waitFor: expel() });
+  }
+}); */
 
-CTX.subscribe("SpinToTarget", "GoToTarget", function (gt) {
-  const power = 100;
-  while (true) {
-    var t = bp.sync({ waitFor: Telemetry.ANY, interrupt: CTX.ContextEndedEvent("GoToTarget", gt) });
-    // update the local context with any global updates
-    gt = CTX.getContextInstances("GoToTarget").get(0);
-    var data = getPlayerToTargetData(t, gt.target);
-    var degree = data.degree;
-    if (Math.abs(degree) > 6) {
-      toBlock = moveEvents;
-      // must correct orientation
-      if (degree > 0) {
-        bp.sync({ request: ParameterizedMove(null, null, power), block: moveEvents });
-      } else {
-        bp.sync({ request: ParameterizedMove(null, null, -power), block: moveEvents });
-      }
-    }
+CTX.subscribe("UpdateGoalTarget", "IPossesTheBall", function (referee) {
+  var contextEndedEvent = CTX.AnyContextEndedEvent("IPossesTheBall", referee);
+  while(true) {
+    var goal = bp.sync({waitFor: StateUpdate.ANY, interrupt: contextEndedEvent}).goal;
+    bp.sync({
+      request: 
+      CTX.TransactionEvent(
+        CTX.UpdateEvent("PurgeOldTargets"),
+        CTX.InsertEvent(new Target("goal", distanceFromPlayer(goal), degreeFromPlayer(goal)))
+      )
+    });
   }
 });
 
-CTX.subscribe("SuckBall", "GoToBall", function (gt) {
-  bp.sync({ request: bp.Event("Suck") });
-});
-
-CTX.subscribe("ReleaseTheBallImmediatly", "TimeoutInASecond", function (gt) {
-  bp.sync({ request: bp.Event("Expel") });
+CTX.subscribe("ReleaseTheBallWhenReady", "FacingGoal", function (target) {
+  bp.sync({ request: expel() });
   bp.sync({ request: CTX.UpdateEvent("UpdatePosession", { "posession": "" }) });
 });
 
-CTX.subscribe("ReleaseTheBallWhenReady", "IPossesTheBall", function (gt) {
-  var contextEndedEvent = CTX.ContextEndedEvent("IPossesTheBall", gt);
-  while (true) {
-    var t = bp.sync({ waitFor: Telemetry.ANY, interrupt: contextEndedEvent });
-    var degree = getPlayerToTargetData(t, "gate").degree;
-    if (Math.abs(degree) <= 10) {
-      bp.sync({ request: bp.Event("Expel"), interrupt: contextEndedEvent });
-    }
-  }
+CTX.subscribe("ChangeSpinPowerWhenFree", "BallIsFree", function (referee) {
+  MAX_SPIN = 50;
 });
 
-
-/*
-
-
-bp.registerBThread("NotTooClose", function () {
-  while (true) {
-    var lastTelemetry = bp.sync({ waitFor: Telemetry.ANY });
-    while (lastTelemetry.distancePlayerToBall < tooFar) {
-      if (lastTelemetry.distancePlayerToBall >= tooClose - (tooFar - tooClose)) {
-        var slowDownPower = Math.round(((lastTelemetry.Dist - tooClose) / (tooFar - tooClose)) * 100);
-        bp.sync({ waitFor: [StaticEvents.TURN_RIGHT, StaticEvents.TURN_LEFT], request: ParameterizedMove(slowDownPower,0,0), block: StaticEvents.FORWARD });
-      } else {
-        bp.sync({ waitFor: [StaticEvents.TURN_RIGHT, StaticEvents.TURN_LEFT], request: ParameterizedMove(-100,0,0), block: StaticEvents.FORWARD });
-      }
-      lastTelemetry = bp.sync({ waitFor: Telemetry.ANY, block: StaticEvents.FORWARD });
-    }
-  }
-}); */
+CTX.subscribe("ChangeSpinPowerWhenIPosses", "IPossesTheBall", function (referee) {
+  MAX_SPIN = 100;
+});

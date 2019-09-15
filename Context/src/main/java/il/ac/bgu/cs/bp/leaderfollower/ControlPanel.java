@@ -43,7 +43,7 @@ public class ControlPanel {
     public JLabel Distance2Ball_Lable = new JLabel("Distance To Ball:        ");
     public JLabel PlayerDegree_Lable = new JLabel("Player Degree:        ");
     public JLabel Deg2Ball_Lable = new JLabel("Degree 2 Ball:        ");
-    public JLabel Deg2Gate_Lable = new JLabel("Degree 2 Gate:        ");
+    public JLabel Deg2Goal_Lable = new JLabel("Degree 2 Goal:        ");
     public JTextField PlayerGpsX_Text = new JTextField("-----", 8);
     public JTextField PlayerGpsZ_Text = new JTextField("-----", 8);
     public JTextField BallGpsX_Text = new JTextField("-----", 8);
@@ -51,7 +51,7 @@ public class ControlPanel {
     public JTextField Distance2Ball_Text = new JTextField("-----", 8);
     public JTextField PlayerDegree_Text = new JTextField("-----", 8);
     public JTextField Deg2Ball_Text = new JTextField("-----", 8);
-    public JTextField Deg2Gate_Text = new JTextField("-----", 8);
+    public JTextField Deg2Goal_Text = new JTextField("-----", 8);
     
     JPanel RefereePanel;
     public JLabel BallPosession_Label = new JLabel("Ball Posession:        ");
@@ -151,9 +151,9 @@ public class ControlPanel {
         TelemPanel.add(Deg2Ball_Lable);
         TelemPanel.add(Deg2Ball_Text);
         niceText(Deg2Ball_Text);
-        TelemPanel.add(Deg2Gate_Lable);
-        TelemPanel.add(Deg2Gate_Text);
-        niceText(Deg2Gate_Text);
+        TelemPanel.add(Deg2Goal_Lable);
+        TelemPanel.add(Deg2Goal_Text);
+        niceText(Deg2Goal_Text);
         TelemPanel.setLayout(new GridLayout(8, 2));
 
         ButtonsPanel.add(Startbutton);

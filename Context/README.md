@@ -1,4 +1,4 @@
-# BPjsLeaderFollower
+# Context-Based RoboCup player
 
 This project is a solution to the [leader-follower challenge](https://mdetools.github.io/mdetools18/challengeproblem.html)
 from MODELS18. It contains logic that controls a rover, making sure it to follows another rover at a safe distance. The controller logic is written using Behavioral Programming (BP), using [BPjs](https://github.com/bThink-BGU/BPjs).

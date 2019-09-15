@@ -17,7 +17,7 @@ public class Actuator extends BProgramRunnerListenerAdapter implements Runnable 
   private final BlockingQueue<BEvent> eventsQueue = new LinkedBlockingQueue<>();
   private final PlayerCommands player;
   private final StateUpdater telemetryCollector;
-  private final int sleep = 30;
+  private final int sleep = 35;
   private Thread thread;
 
   public Actuator(PlayerCommands player, StateUpdater telemetryCollector) {
@@ -29,7 +29,7 @@ public class Actuator extends BProgramRunnerListenerAdapter implements Runnable 
   public void run() {
     try {
       while (true) {
-        BEvent e = eventsQueue.poll(30, TimeUnit.MILLISECONDS);
+        BEvent e = eventsQueue.poll(35, TimeUnit.MILLISECONDS);
         if (e == null) {
           telemetryCollector.collectTelemetry();
         } else if (e.name.equals("Suck")) {

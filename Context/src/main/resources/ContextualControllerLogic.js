@@ -6,7 +6,7 @@ importPackage(Packages.il.ac.bgu.cs.bp.bpjs.context);
 var player;
 var opponent;
 
-var MIN_DEGREE = 6;
+var MIN_DEGREE = 5;
 var MAX_SPIN = 50;
 var MAX_PWR = 100;
 var TOO_FAR = 5;
@@ -14,7 +14,10 @@ var TOO_CLOSE = 3.7;
 
 var FBWARD_EVENT_REGEX = /^(Possesion|Timeout|scored|Done)/
 var refereeEvents = bp.EventSet("RefereeEvents", function (e) {
-  return e.name.match(FBWARD_EVENT_REGEX) !== null
+  return e.name.match(FBWARD_EVENT_REGEX) !== null;
+});
+var scoreEvents = bp.EventSet("RefereeScoreEvents", function (e) {
+  return e.name.equals("scored");
 });
 var moveEvents = bp.EventSet("MoveEvents", function (e) {
   return e instanceof ParameterizedMove && (e.powerForward != null || e.powerLeft != null);
@@ -109,10 +112,13 @@ CTX.subscribe("SpinToTarget", "MoveTowardsTarget", function (target) {
     bp.sync({ request: spin(0), block: moveEvents }); */
 });
 
-// CTX.subscribe("BallSuction", "BallIsFreeNearPlayer", function (target) {
-CTX.subscribe("BallSuction", "BallIsFree", function (referee) {
+CTX.subscribe("BallSuction", "BallIsFreeNearPlayer", function (target) {
+//CTX.subscribe("BallSuction", "MoveTowardsBall", function (referee) {
   bp.sync({ request: suction() });
-  bp.sync({ block: suction(), waitFor: expel() });
+  bp.sync({ block: suction(), waitFor: [expel(), scoreEvents] });
+  var i;
+  for (i=0; i<2; i++) 
+    bp.sync({ block: suction(), waitFor: StateUpdate.ANY });
 });
 
 CTX.subscribe("UpdateBallTarget", "BallIsFree", function (referee) {

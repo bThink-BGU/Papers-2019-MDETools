@@ -29,7 +29,7 @@
         <dependency>
             <groupId>com.github.bThink-BGU.BPjs-Context</groupId>
             <artifactId>BPjs-Context-Core</artifactId>
-            <version>master-SNAPSHOT</version>
+            <version>da28bdf96f</version>
         </dependency>
         
         <dependency>
@@ -87,7 +87,7 @@
             <!-- Making uber jar for easy execution. -->
             <id>uber-jar</id>
             <build>
-                <finalName>BPjs-${project.version}.uber</finalName>
+                <finalName>RoboCup-Context-${project.version}.uber</finalName>
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>

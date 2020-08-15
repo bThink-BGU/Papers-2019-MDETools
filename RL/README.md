@@ -11,18 +11,20 @@ https://mdetools.github.io/mdetools19/challengeproblem.html
 ## What to run
 
 This project contains two executable:
-
 * `train_agent.py`: Runs red player training
 * `run_agent.py`: Runs red player implementation of the challenge after training
 
-## How to Run
-* Run `train_agent.py` (learning takes time).
-* Run `run_agent.py`.
+You need to download the [Performance Improved Simulation Package](https://drive.google.com/open?id=1CgJ8B4Mst4Z8MiJVNoRPcbrZanLdV2jb) and extract it. 
 
+## How to Run
+Assuming you extracted [Performance Improved Simulation Package](https://drive.google.com/open?id=1CgJ8B4Mst4Z8MiJVNoRPcbrZanLdV2jb) to <path>, then:
+* Training: ```python train_agent.py "<path>\Windows\windows_x86_64_server\SimGen Unity Framework.exe"```
+* Running: execute "<path>\Windows\windows_x86_64\SimGen Unity Framework.exe" and then ```python run_agent.py```.
+Check <path> for other OS/architectures. 
 
 ## Infrastructure
 * This project uses the following packages:
-    - [z3](https://github.com/Z3Prover/z3) 
+    - [z3-solver](https://github.com/Z3Prover/z3) 
     - [gym](https://github.com/openai/gym)
     - [numpy](https://github.com/numpy/numpy)
     - [matplotlib](https://github.com/matplotlib/matplotlib)

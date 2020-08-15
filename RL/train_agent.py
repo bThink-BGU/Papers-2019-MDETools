@@ -19,6 +19,8 @@ exception = False
 def SplitInData(s):
     s1 = s.split(';')
     s2 = s1[0].split(',')
+    for i in range(len(s2)):
+        s2[i] = s2[i].replace("\\n", "").rstrip("'")
     return s2
 
 
@@ -47,8 +49,8 @@ def getTelem():
     roverSocket.sendall(b"ball,GPS()\n")
     lData = repr(roverSocket.recv(1024))
     LeaderGPSData = SplitInData(lData)
-    LeaderPx = float(LeaderGPSData[1])
-    LeaderPy = float(LeaderGPSData[2])
+    LeaderPx = float(LeaderGPSData[0].replace("b'", ""))
+    LeaderPy = float(LeaderGPSData[1])
     print("Leader Pos x:", LeaderPx)
     print("Leader Pos y:", LeaderPy)
 
@@ -63,9 +65,9 @@ def getTelem():
 
     if (abs(DDeg) >= 360):
         if (DDeg > 0):
-            DDeg = DDeg - 360;
+            DDeg = DDeg - 360
         else:
-            DDeg = DDeg + 360;
+            DDeg = DDeg + 360
 
     if (abs(DDeg) > 180):
         if (DDeg > 180):
@@ -82,9 +84,9 @@ def getTelem():
 
     if (abs(GDDeg) >= 360):
         if (GDDeg > 0):
-            GDDeg = GDDeg - 360;
+            GDDeg = GDDeg - 360
         else:
-            GDDeg = GDDeg + 360;
+            GDDeg = GDDeg + 360
 
     if (abs(GDDeg) > 180):
         if (GDDeg > 180):
@@ -228,7 +230,7 @@ class BPEnv(gym.Env):
         self.start_time = time.time()
         print(self.start_time)
         if not self.testing:
-            subprocess.call(["open", self.simulation_path])
+            subprocess.Popen([self.simulation_path])
             time.sleep(6)
         roverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         roverSocket.settimeout(1.0)
@@ -257,6 +259,7 @@ class BPEnv(gym.Env):
 
     def close_simulation(self):
         if not self.testing:
+            return
             pr = subprocess.check_output("pgrep mac", shell=True)
             for p in pr.decode().split("\n")[:-1]:
                 subprocess.call(["kill", "-9", p])
@@ -492,7 +495,7 @@ class CustomPolicy(FeedForwardPolicy):
 
 
 if __name__ == "__main__":
-    log_dir = os.path.dirname(os.path.realpath(__file__)) + "/"
+    log_dir = os.path.dirname(os.path.realpath(__file__)) + os.path.sep
     os.makedirs(log_dir, exist_ok=True)
     # Create and wrap the environment
     env = BPEnv()
